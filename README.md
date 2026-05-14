@@ -73,22 +73,16 @@ Bridge tables are used to resolve many-to-many relationships:
 
 ---
 
-# Entity Relationship Diagram
-
-![ERD](documentation/ERD.png)
-
----
-
 # Technologies Used
 
-- Oracle SQL
-- Oracle Live SQL / SQL Developer
+- Oracle APEX
 - Relational Database Design
 - SQL Aggregation
 - JOIN Operations
 - LISTAGG
 - CASE Expressions
 - Constraint Modelling
+- STAR UML
 
 ---
 
@@ -126,7 +120,6 @@ Provides end-to-end freight tracking across trains, wagons, routes, and schedule
 sql/
 documentation/
 diagrams/
-assets/
 ```
 
 ---
