@@ -1,0 +1,60 @@
+Constraints and Assumptions
+
+General Rules:
+• Each entity has a unique primary key. 
+• All foreign keys must reference existing records, ensuring referential integrity. 
+•Mandatory relationships must always have a valid reference, while optional relationships may have none. 
+• Many-to-many relationships are resolved using bridge entities. 
+• The database is designed in Third Normal Form (3NF) to eliminate redundancy. 
+• Derived values (e.g., total train length, gross freight weight) are not stored and must be calculated when required. 
+• All weights are stored in tonnes, lengths in metres, and distances in miles. 
+
+Station, Stage, Route and Route_Stage:
+• A stage connects exactly two distinct stations and is considered bidirectional. 
+• Stage distances are fixed and assumed not to change over time. 
+• The direction in which a stage is travelled is determined in Route_Stage using the direction attribute. A = station_id_a → station_id_b ; B = station_id_b → station_id_a
+
+Company, Consignment and Goods_Type:
+• Each consignment belongs to exactly one company and represents a single goods type. 
+• A consignment must have one collection station and one delivery station. 
+• Quantity represents the number of units, and total weight is derived using quantity × unit_weight.  
+• Detailed consignment information is assumed to be managed by an external system. 
+• Goods are assigned to wagon classes as follows: 
+	o Cement, Coal, Steel → Open wagons 
+	o Cars → Car carriers 
+	o Perishable goods → Covered wagons 
+	o Oil → Tank wagons 
+
+Train, Wagon, Wagon_Load and Consignment:
+• A train must carry at least one consignment and may carry consignments from multiple companies. 
+• A consignment must be transported using one or more wagons and may be split across multiple wagons and trains. 
+• Wagons may be reused across trains at different times but cannot be assigned to multiple trains simultaneously. 
+
+Train_Schedule:
+• Schedule entries are recorded only for operational stops (loading/unloading); trains are assumed to pass through other stations without stopping. 
+• Stage sequences must follow the predefined route order, and duplicate stage entries for a train are not permitted. 
+• Travel and stop durations are derived from datetime differences. 
+• Wagons and locomotives may be reused across trains, but scheduling must prevent any time conflicts. Sufficient time gaps must be allowed between train operations. 
+• The column stop_type can only contain exactly one of these three string values: 'START', 'STOP', 'END'.
+
+Locomotive_Class and Locomotive:
+• A locomotive may be used across multiple trains at different times but cannot operate in more than one train simultaneously. 
+• A locomotive may optionally have a name in addition to its serial number. 
+
+Wagon_Class and Wagon:
+• All wagons within the same class share identical characteristics.
+• Wagons may be reused across trains at different times but cannot be assigned to multiple trains simultaneously. 
+
+Driver, Driver_Qualification and Driver_Allocation:
+• Each train must have exactly two drivers, assigned distinct roles (Driver and Co-Driver). 
+• A driver may be assigned to multiple trains at different times but cannot operate multiple trains simultaneously. 
+• Licence 10 years validity is enforced using the licence expiry date. 
+• Each record in Driver_Qualification represents a certification issued to a driver, specifying the locomotive class (rolling stock) they are authorised to operate.
+• Each certification is assumed to remain valid as long as the driver’s licence is valid.
+
+Derived Values:
+The following values are calculated dynamically and not stored:
+• Total train length = locomotive length + sum of wagon lengths 
+• Gross freight weight = sum of (quantity × unit_weight) across consignments 
+• The number of Locomotives and Wagons owned, are represented by the number of records in the Locomotive and Wagon datasets respectively.
+• All derived values are computed using SQL queries when required

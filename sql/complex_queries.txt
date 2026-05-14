@@ -1,0 +1,123 @@
+
+
+1. Train Compliance Check (Weight & Length Constraints)
+
+
+SELECT 
+    t.train_id as Train_Id,    
+    SUM(wc.tare_weight + wl.load_quantity) as Total_Wagon_Weight,
+    lc.max_towing_weight as Locomotive_Max_Towing_Weigth,
+    
+    (lc.loco_length + SUM(wc.wagon_length)) as Train_Total_Length,
+
+    400 as Train_Length_Limit,
+    
+    CASE  WHEN ( SUM(wc.tare_weight + wl.load_quantity) <= lc.max_towing_weight
+          AND (lc.loco_length + SUM(wc.wagon_length)) <= 400 )      THEN 'COMPLIANT'    ELSE 'NOT COMPLIANT'
+    END AS Compliance_Status
+
+FROM Train t
+JOIN Locomotive l ON t.loco_serial = l.loco_serial
+JOIN Locomotive_Class lc ON l.loco_class_id = lc.loco_class_id
+JOIN Wagon_Load wl ON t.train_id = wl.train_id
+JOIN Wagon w ON wl.wagon_serial = w.wagon_serial
+JOIN Wagon_Class wc ON w.wagon_id = wc.wagon_id
+
+GROUP BY t.train_id, lc.loco_class_name, lc.max_towing_weight, lc.loco_length
+
+ORDER BY t.train_id, lc.loco_class_name
+
+
+------------------------------------------------------------------------------------------
+2- Driver Qualification Compliance
+
+SELECT 
+    t.train_id as Train_Id,
+    lc.loco_class_name as Locomotive_Class,
+    d.driver_id as Driver_Id,
+    da.role as Driver_Role,
+    d.first_name || ' ' || d.last_name as Driver_Name,
+    CASE 
+        WHEN dq.driver_id IS NOT NULL THEN 'VALID'
+        ELSE 'NOT QUALIFIED'
+    END AS Qualification_Status
+
+FROM Train t
+JOIN Locomotive l ON t.loco_serial = l.loco_serial
+JOIN Locomotive_Class lc ON l.loco_class_id = lc.loco_class_id
+JOIN Driver_Allocation da ON t.train_id = da.train_id
+JOIN Driver d ON da.driver_id = d.driver_id
+LEFT JOIN Driver_Qualification dq ON d.driver_id = dq.driver_id AND lc.loco_class_id = dq.loco_class_id
+
+WHERE d.licence_expiry_date > SYSDATE
+
+ORDER BY t.train_id, d.driver_id
+
+
+------------------------------------------------------------------------------------------
+3- Wagon Load Status Check
+
+
+SELECT 
+    wl.train_id as Train_Id,
+    wl.wagon_serial as Wagon,
+    wc.wagon_name as Wagon_Name,
+    wl.load_quantity as Total_Load,
+    wc.max_payload as Max_Payload,
+
+    CASE    WHEN wl.load_quantity > wc.max_payload     THEN 'OVERLOADED'    ELSE 'OK'   END AS Load_Status
+
+FROM Wagon_Load wl
+
+JOIN Wagon w  ON wl.wagon_serial = w.wagon_serial
+JOIN Wagon_Class wc  ON w.wagon_id = wc.wagon_id
+
+ORDER BY wl.train_id, wl.wagon_serial
+
+
+------------------------------------------------------------------------------------------
+
+4- Consignment Tracking Query
+
+
+SELECT 
+    c.consignment_id as Consignment_Id,
+    comp.company_name as Company,
+    sc.station_name as Collection_Station,
+    sd.station_name as Delivery_Station,
+    gt.description as Goods_Type,
+    (c.quantity * gt.unit_weight) as Goods_Weight,
+    t.train_id as Train_Id,
+    
+    (SELECT SUM(st2.journey_distance)   FROM Route_Stage rs2    JOIN Stage st2 ON rs2.stage_id = st2.stage_id
+     WHERE rs2.route_id = t.route_id  ) AS Journey_Distance,
+    
+    MAX(CASE WHEN da.role = 'Driver'   THEN d.first_name || ' ' || d.last_name END) AS Driver,        
+    MAX(CASE WHEN da.role = 'Co-Driver'   THEN d.first_name || ' ' || d.last_name END) AS Co_driver,
+    
+    t.loco_serial as Locomotive,    
+    LISTAGG(DISTINCT wl.wagon_serial, ', ') as Wagons,    
+    TO_CHAR(MIN(ts.departure_time), 'YYYY-MM-DD HH24:MI') as Departure_time,
+    TO_CHAR(MAX(ts.arrival_time), 'YYYY-MM-DD HH24:MI') as Arrival_time
+
+FROM Consignment c
+JOIN Company comp ON c.company_id = comp.company_id
+JOIN Goods_Type gt ON c.goods_id = gt.goods_id
+JOIN Station sc ON c.collection_station_id = sc.station_id
+JOIN Station sd ON c.delivery_station_id = sd.station_id
+JOIN Wagon_Load wl ON c.consignment_id = wl.consignment_id
+JOIN Train t ON wl.train_id = t.train_id
+JOIN Driver_Allocation da ON t.train_id = da.train_id
+JOIN Driver d ON da.driver_id = d.driver_id
+JOIN Train_Schedule ts ON t.train_id = ts.train_id
+JOIN Route_Stage rs ON t.route_id = rs.route_id
+JOIN Stage st ON rs.stage_id = st.stage_id
+JOIN Station sa ON st.station_id_a = sa.station_id
+JOIN Station sb ON st.station_id_b = sb.station_id
+
+GROUP BY 
+    c.consignment_id, comp.company_name,
+    sc.station_name, sd.station_name,
+    gt.description, c.quantity, gt.unit_weight,
+    t.train_id, t.loco_serial, t.route_id
+
